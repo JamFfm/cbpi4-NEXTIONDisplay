@@ -1,0 +1,2 @@
+include NEXTIONDisplay/config.yaml
+recursive-include NEXTIONDisplay/static *
