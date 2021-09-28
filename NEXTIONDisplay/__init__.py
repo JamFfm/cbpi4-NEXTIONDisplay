@@ -46,8 +46,10 @@ listetarget = []
 # FERMLISTE = []
 # FERMLISTETARGET = []
 
-erase = False       # todo no need for globals anymore. Rebuild detect touch  and main code
+erase = False
 rewrite = False
+targetfocus = "off"  # this is a button value
+
 
 max_value_old = 0  # global max_value_old
 min_value_old = 0  # global min_value_old
@@ -55,6 +57,7 @@ min_value_old = 0  # global min_value_old
 # fmin_value_old = 0  # global fmin_value_old fermentation
 
 logger = logging.getLogger(__name__)
+
 
 class NEXTIONDisplay(CBPiExtension):
     def __init__(self, cbpi):
@@ -65,6 +68,7 @@ class NEXTIONDisplay(CBPiExtension):
 
         global erase
         global rewrite
+        global targetfocus
 
         port = await self.set_serial_port_of_raspi()
         logger.info("NextionDisplay - Serial Port of Raspi: %s" % port)
@@ -89,28 +93,26 @@ class NEXTIONDisplay(CBPiExtension):
         version = await self.get_cbpi_version()
         logger.info("nextionDisplay - CBPI version: %s" % version)
 
-        #  for any reason the first value will be dropped so this is just fake and does nothing
+        #  for any reason the first value will be dropped so t1startfake is just fake and does nothing
         await self.NextionwriteString(ser, "t1startfake", "start")
         await self.NextionwriteString(ser, "t1start", version)
-        # await self.detect_touch(ser)  #todo
 
         # *************************************************************************************************************
         while True:
             # this is the main code repeated constantly
-
+            await self.Nextiongetpage(ser)
             kettleID = await self.set_parameter_kettleID()
             # fermid = int(set_parameter_fermID())
             dubbleline = await self.set_parameter_dubbleline(ser)
 
             ip = await self.set_ip()
             iptext = "IP: %s" % ip
-            # if DEBUG: logger.info("NextionDisplay - IP: %s" % iptext)
 
             await self.NextionwriteString(ser, "t2start", iptext)
 
             await self.set_time(ser)
 
-            # collect all values.
+            # collect all values
             all_values = await self.collect_all_values(kettleID)
 
             kettle_current_temp_as_string = all_values["current_temp_of_kettle_sensor_formatted_as_string"]
@@ -125,7 +127,7 @@ class NEXTIONDisplay(CBPiExtension):
 
             # pass
             await self.detect_touch(ser)
-            if current_temp_of_kettle_sensor_as_float < 110.00:           # first value is 200.00 and we want to skip it
+            if current_temp_of_kettle_sensor_as_float < 110.00:  # first value is 200.00 and we want to skip it
                 await self.writewave(ser,
                                      current_temp_of_kettle_sensor_as_float,
                                      kettle_current_temp_as_string,
@@ -134,6 +136,7 @@ class NEXTIONDisplay(CBPiExtension):
                                      current_kettle_name,
                                      current_rest_name,
                                      remaining_time_of_current_rest,
+                                     targetfocus,
                                      erase, rewrite,
                                      dubbleline)
             pass
@@ -165,6 +168,7 @@ class NEXTIONDisplay(CBPiExtension):
                         current_kettle_name,
                         current_rest_name,
                         remaining_time_of_current_rest,
+                        targetfocus,
                         erase=False, rewrite=False, dubbleline=True):
 
         global min_value_old
@@ -216,10 +220,21 @@ class NEXTIONDisplay(CBPiExtension):
             listetarget.pop(0)
             listetarget.append(targettemp)
         # if DEBUG: logger.info('NextionDisplay  - targetListe len(listetarget):%s' % (len(listetarget)))
+        pass
 
         # min max labels for scale
-        max_value = round(float(max(liste)) + 0.3, 1)
-        min_value = round(float(min(liste)) - 0.3, 1)
+        if targetfocus == "on":
+            max_value_curr_temp = round(float(max(liste)) + 0.3, 1)
+            min_value_curr_temp = round(float(min(liste)) - 0.3, 1)
+            max_value_targ_temp = round(float(max(listetarget)) + 0.3, 1)
+            min_value_targ_temp = round(float(min(listetarget)) - 0.3, 1)
+            max_value = max(max_value_curr_temp, max_value_targ_temp)
+            min_value = min(min_value_curr_temp, min_value_targ_temp)
+        else:
+            max_value = round(float(max(liste)) + 0.3, 1)
+            min_value = round(float(min(liste)) - 0.3, 1)
+        pass
+
         await self.NextionwriteString(ser, "tmax", "%s%s" % (max_value, str(unit)))
         await self.NextionwriteString(ser, "tmin", "%s%s" % (min_value, (str(unit))))
         await self.NextionwriteString(ser, "tavarage",
@@ -245,7 +260,7 @@ class NEXTIONDisplay(CBPiExtension):
             await self.Nextion_ref_wave(ser, "ref_stop")
             while i < len(liste):
                 if DEBUG: logger.info('NextionDisplay  - liste:%s' % (liste[i]))
-                digit = (round(((liste[i] - min_value) * factor), 2))
+                digit = round(((liste[i] - min_value) * factor), 2)
                 digit2 = digit + 1  # adjust thickness of line
                 digit_to_int = round(digit)
                 digit2_to_int = round(digit2)
@@ -256,18 +271,26 @@ class NEXTIONDisplay(CBPiExtension):
                 if DEBUG: logger.info('NextionDisplay  - dubbleline rewrite: %s' % dubbleline)
                 #  targettemp
                 # if DEBUG: logger.info('NextionDisplay  - listetarget:%s' % (listetarget[i]))
-                target = (round(((listetarget[i] - min_value) * factor), 2))
+                target = round(((listetarget[i] - min_value) * factor), 2)
                 target2 = target + 1
                 target_to_int = round(target)
                 target2_to_int = round(target2)
                 tstring = str(target_to_int)
-                tstring2 = str(target2_to_int)  # try to adjust thickness of line
+                tstring2 = str(target2_to_int)  # adjust thickness of line
                 if 0 < target < xpixel:  # do not write target line if not in temp/screen range
                     await self.NextionwriteWave(ser, 1, 2, tstring)
                     if dubbleline: await self.NextionwriteWave(ser, 1, 3, tstring2)
                     if DEBUG: logger.info(
                         'NextionDisplay  - listetarget[i], target, tstring: %s, %s, %s' % (
                             listetarget[i], target, tstring))
+                elif targettemp == 0.00:
+                    await self.NextionwriteWave(ser, 1, 2, 0)
+                    if dubbleline: await self.NextionwriteWave(ser, 1, 3, 0)
+                elif xpixel < target:
+                    await self.NextionwriteWave(ser, 1, 2, xpixel)
+                    if dubbleline: await self.NextionwriteWave(ser, 1, 3, xpixel)
+                else:
+                    pass
                 pass
                 if DEBUG: logger.info(
                     'NextionDisplay  - liste(i), digit, string: %s, %s, %s' % (liste[i], digit, string))
@@ -300,10 +323,12 @@ class NEXTIONDisplay(CBPiExtension):
                 if dubbleline: await self.NextionwriteWave(ser, 1, 3, tstring2)  # adjust thickness of line
                 if DEBUG: logger.info(
                     'NextionDisplay  - targettemp, target, tstring: %s, %s, %s' % (targettemp, target, tstring))
-            else:
-                # todo: verhindern das die target temp linie mit dem alten wert weiter gezeichnet wird
-                await self.NextionwriteWave(ser, 1, 2, "")
-                if dubbleline: await self.NextionwriteWave(ser, 1, 3, "")  # adjust thickness of line
+            elif targettemp == 0.00:
+                await self.NextionwriteWave(ser, 1, 2, 0)
+                if dubbleline: await self.NextionwriteWave(ser, 1, 3, 0)  # adjust thickness of line
+            elif xpixel < target:
+                await self.NextionwriteWave(ser, 1, 2, xpixel)
+                if dubbleline: await self.NextionwriteWave(ser, 1, 3, xpixel)
                 pass
         pass
 
@@ -311,7 +336,7 @@ class NEXTIONDisplay(CBPiExtension):
         max_value_old = max_value
         # global min_value_old
         min_value_old = min_value
-
+        await asyncio.sleep(4.2)  # has effect on time scale of x axis makes everything slow
         return None
 
     async def writing_multi_to_nextion(self, ser,
@@ -335,22 +360,22 @@ class NEXTIONDisplay(CBPiExtension):
             # are 5 kettles it will at least show the 4 functional kettles
             try:
                 kettle_id = kettles[i]["id"]
-                kettle_name_field = "KettlenMTxt" + str(i+1)
+                kettle_name_field = "KettlenMTxt" + str(i + 1)
                 kettle_name = (kettles[i]["name"])
                 await self.NextionwriteString(ser, kettle_name_field, kettle_name)
 
-                current_temp_field = "CurrMTemp" + str(i+1)
+                current_temp_field = "CurrMTemp" + str(i + 1)
                 kettle_sensor_id = (kettles[i]["sensor"])
                 sensor_value = self.cbpi.sensor.get_sensor_value(kettle_sensor_id).get('value')
                 CurrMTemp = ("%6.2f%s" % (sensor_value, "°"))
                 await self.NextionwriteString(ser, current_temp_field, CurrMTemp)
 
-                target_temp_field = "TarTempMTxt" + str(i+1)
+                target_temp_field = "TarTempMTxt" + str(i + 1)
                 kettle_target_temp = (kettles[i]["target_temp"])
                 TarTempMTxt = ("%6.2f%s" % (kettle_target_temp, "°"))
                 await self.NextionwriteString(ser, target_temp_field, TarTempMTxt)
 
-                heater_status_field = "heaterstatusM" + str(i+1)
+                heater_status_field = "heaterstatusM" + str(i + 1)
                 kettle = self.cbpi.kettle.find_by_id(kettle_id)
                 heater = self.cbpi.actor.find_by_id(kettle.heater)
                 kettle_heater_status = heater.instance.state
@@ -399,7 +424,6 @@ class NEXTIONDisplay(CBPiExtension):
             await self.NextionwriteString(ser, "TargetTempTxt", kettle_target_temp_as_string)
 
             #   Current kettlename in text field
-
             await self.NextionwriteString(ser, "t3", current_kettle_name)
         except Exception as e:
             if DEBUG: logger.warning(e)
@@ -485,6 +509,7 @@ class NEXTIONDisplay(CBPiExtension):
         kettle_target_temp = kettlevalues['kettle_target_temp']
         kettle_target_temp_formatted = ("%6.2f" % float(kettle_target_temp))  # only Number without unit
         return kettle_target_temp_formatted
+
     #  todo not used
 
     async def get_ip(self, interface):
@@ -494,7 +519,7 @@ class NEXTIONDisplay(CBPiExtension):
             ip_addr = socket.inet_ntoa(
                 fcntl.ioctl(so.fileno(), 0x8915, struct.pack('256s', bytes(interface.encode())[:15]))[20:24])
         except Exception as e:
-            logger.warning('no ip found')
+            logger.warning('NextionDisplay - no ip found')
             if DEBUG: logger.warning(e)
             return ip_addr
         finally:
@@ -589,6 +614,16 @@ class NEXTIONDisplay(CBPiExtension):
             command = str.encode('vis %s,%s' % (objectname, onoff))
             ser.write(command)
             ser.write(TERMINATOR)
+        pass
+
+    async def Nextiongetpage(self, ser):
+        command = str.encode('sendme')
+        ser.write(command)
+        ser.write(TERMINATOR)
+        touch = ser.read_until(TERMINATOR)
+        if len(touch) != 0:
+            pageID_touch = touch[1:2]
+            logger.info("NextionDisplay  - Nextiongetpage Page Number:  %s" % pageID_touch)
         pass
 
     async def get_cbpi_temp_unit(self):
@@ -731,7 +766,6 @@ class NEXTIONDisplay(CBPiExtension):
         pass
         await asyncio.sleep(1)
 
-
     async def set_parameter_kettleID(self):
         kettle_id = self.cbpi.config.get('NEXTION_Kettle_ID', None)
         if kettle_id is None:
@@ -741,8 +775,12 @@ class NEXTIONDisplay(CBPiExtension):
                                            'NO! CBPi reboot required')
                 logger.info("NextionDisplay - NEXTION_Kettle_ID added to settings")
                 kettle_id = self.cbpi.config.get('NEXTION_Kettle_ID', None)
+                if kettle_id is None:
+                    kettle_id = self.cbpi.config.get('MASH_TUN', None)
+                    logger.warning('NextionDisplay - set_parameter_kettleID: no value for Kettle_ID, used MASH TUN')
+                pass
             except Exception as e:
-                logger.warning('NextionDisplay - Unable to update config')
+                logger.warning('NextionDisplay - set_parameter_kettleID: Unable to update config')
                 logger.warning(e)
             pass
         pass
@@ -759,7 +797,7 @@ class NEXTIONDisplay(CBPiExtension):
                 logger.info("NextionDisplay - NEXTION_bold_line added to settings")
                 dubbleline = self.cbpi.config.get("NEXTION_bold_line", None)
             except Exception as e:
-                logger.warning('NextionDisplay - Unable to update config')
+                logger.warning('NextionDisplay - set_parameter_dubbleline: Unable to update config')
                 logger.warning(e)
             pass
         if dubbleline == "on":
@@ -784,16 +822,34 @@ class NEXTIONDisplay(CBPiExtension):
                 logger.info("NextionDisplay - NEXTION_Serial_Port added")
                 port = self.cbpi.config.get("NEXTION_Serial_Port", None)
             except Exception as e:
-                logger.warning('NextionDisplay - Unable to update config')
+                logger.warning('NextionDisplay - NEXTION_Serial_Port: Unable to update config')
                 logger.warning(e)
             pass
         pass
         return port
 
+    async def set_targetfocus(self):
+        targetfocus = self.cbpi.config.get("NEXTION_Target_Focus", None)
+        if targetfocus is None:
+            targetfocus = "off"
+            try:
+                await self.cbpi.config.add("NEXTION_Target_Focus", "off", ConfigType.SELECT,
+                                           "Turn on/off NEXTION_Target_Focus no Reboot necessary",
+                                           [{"label": "on", "value": "on"}, {"label": "off", "value": "off"}])
+                logger.info("NextionDisplay - NEXTION_Target_Focus added")
+                targetfocus = self.cbpi.config.get("NEXTION_Target_focus", None)
+            except Exception as e:
+                logger.warning('NextionDisplay - NEXTION_Target_Focus: Unable to update config')
+                logger.warning(e)
+            pass
+        pass
+        return targetfocus
+
     async def detect_touch(self, ser):
         global erase
         global rewrite
-        look_touch = 1   # in seconds
+        global targetfocus
+        look_touch = 1  # in seconds
 
         touch = ser.read_until(TERMINATOR)
         if len(touch) != 0:
@@ -825,13 +881,19 @@ class NEXTIONDisplay(CBPiExtension):
                 logger.info("NextionDisplay  - page:%s, component:%s, event:%s"
                             % (pageID_touch, compID_touch, event_touch))
 
-                # if pageID_touch == "0x1" and compID_touch == "0x10":
                 if (pageID_touch == "01" or pageID_touch == "05") and compID_touch == "05":
                     logger.info("NextionDisplay  - touch: Clearbutton of Brewpage pushed")
                     erase = True
                 elif pageID_touch == "00" and compID_touch == "03":
                     logger.info("NextionDisplay  - touch: Brewpage button pushed")
                     rewrite = True
+                elif (pageID_touch == "01" or pageID_touch == "05") and compID_touch == "11":
+                    logger.info("NextionDisplay  - touch: Focusbutton of Brewpage pushed")
+                    if targetfocus == "off":
+                        targetfocus = "on"
+                    else:
+                        targetfocus = "off"
+                    pass
                 elif (pageID_touch == "03" and compID_touch == "03") or (
                         pageID_touch == "06" and compID_touch == "04"):
                     logger.info("NextionDisplay  - touch: Clearbutton of Fermpage pushed")
@@ -843,7 +905,19 @@ class NEXTIONDisplay(CBPiExtension):
                     pass
             time.sleep(look_touch)  # timeout the bigger the larger the chance of missing a push
         pass
+
     pass
+
+    def set_time_thread(self, ser):
+        look_time = 1  # in seconds
+        timestr = ((strftime("%Y-%m-%d %H:%M:%S", time.localtime())).ljust(20))
+        TextLableName = "t3start"
+        command = str.encode('%s.txt="%s"' % (TextLableName, timestr))
+        ser.write(command)
+        ser.write(TERMINATOR)
+        # if DEBUG: cbpi.app.logger.info("NextionDisplay  - thread set_time " + timestr)
+        time.sleep(look_time)  # showing time only every second <look_time>
+        # await asyncio.sleep(1) makes code slow
 
 
 def setup(cbpi):
