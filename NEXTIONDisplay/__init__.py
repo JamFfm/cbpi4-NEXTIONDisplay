@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-# NextionDisplay Version 0.1.0.0
+# NextionDisplay Version 0.1.1.0
 # Build for Craftbeerpi 4
 # Assembled by JamFfm
 #
@@ -35,6 +35,7 @@ import serial  # serial connection to the Nextion Display
 import socket  # ip adr
 import fcntl  # ip adr
 import struct  # ip adr
+import threading
 from time import strftime  # Time display
 from cbpi.api.config import ConfigType
 from cbpi.api import *  # for logger
@@ -49,14 +50,41 @@ listetarget = []
 erase = False
 rewrite = False
 targetfocus = "off"  # this is a button value
-
+ser = None
 
 max_value_old = 0  # global max_value_old
 min_value_old = 0  # global min_value_old
 # fmax_value_old = 0  # global fmax_value_old fermentation
 # fmin_value_old = 0  # global fmin_value_old fermentation
-
 logger = logging.getLogger(__name__)
+
+
+class Timethread (threading.Thread):
+
+    def __init__(self, ser):
+        threading.Thread.__init__(self)
+        self.ser = ser
+
+    def shutdown(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def run(self):
+        try:
+            while True:
+                look_time = 1  # in seconds
+                timestr = ((strftime("%Y-%m-%d %H:%M:%S", time.localtime())).ljust(20))
+                TextLableName = "t3start"
+                command = str.encode('%s.txt="%s"' % (TextLableName, timestr))
+                ser.write(command)
+                ser.write(TERMINATOR)
+                time.sleep(look_time)  # showing time only every second <look_time>
+            pass
+        except Exception as e:
+            logger.info('NextionDisplay - Timethread exception  %s' % e)
+        pass
 
 
 class NEXTIONDisplay(CBPiExtension):
@@ -69,6 +97,7 @@ class NEXTIONDisplay(CBPiExtension):
         global erase
         global rewrite
         global targetfocus
+        global ser
 
         port = await self.set_serial_port_of_raspi()
         logger.info("NextionDisplay - Serial Port of Raspi: %s" % port)
@@ -96,11 +125,14 @@ class NEXTIONDisplay(CBPiExtension):
         #  for any reason the first value will be dropped so t1startfake is just fake and does nothing
         await self.NextionwriteString(ser, "t1startfake", "start")
         await self.NextionwriteString(ser, "t1start", version)
-
+        self.time = Timethread(ser)
+        self.time.daemon = False
+        self.time.start()
+        logger.info("NextionDisplay - time started")
         # *************************************************************************************************************
         while True:
             # this is the main code repeated constantly
-            await self.Nextiongetpage(ser)
+
             kettleID = await self.set_parameter_kettleID()
             # fermid = int(set_parameter_fermID())
             dubbleline = await self.set_parameter_dubbleline(ser)
@@ -109,8 +141,6 @@ class NEXTIONDisplay(CBPiExtension):
             iptext = "IP: %s" % ip
 
             await self.NextionwriteString(ser, "t2start", iptext)
-
-            await self.set_time(ser)
 
             # collect all values
             all_values = await self.collect_all_values(kettleID)
@@ -127,6 +157,7 @@ class NEXTIONDisplay(CBPiExtension):
 
             # pass
             await self.detect_touch(ser)
+
             if current_temp_of_kettle_sensor_as_float < 110.00:  # first value is 200.00 and we want to skip it
                 await self.writewave(ser,
                                      current_temp_of_kettle_sensor_as_float,
@@ -336,7 +367,7 @@ class NEXTIONDisplay(CBPiExtension):
         max_value_old = max_value
         # global min_value_old
         min_value_old = min_value
-        await asyncio.sleep(4.2)  # has effect on time scale of x axis makes everything slow
+        await asyncio.sleep(4.3)  # has effect on time scale of x axis makes everything slow
         return None
 
     async def writing_multi_to_nextion(self, ser,
@@ -622,10 +653,11 @@ class NEXTIONDisplay(CBPiExtension):
         ser.write(TERMINATOR)
         touch = ser.read_until(TERMINATOR)
         if len(touch) != 0:
+            prefix = touch[0:1]
             pageID_touch = touch[1:2]
-            logger.info("NextionDisplay  - Nextiongetpage Page Number:  %s" % pageID_touch)
+            logger.info("NextionDisplay  - Nextiongetpage Prefix %s Page Number:  %s" % (prefix, pageID_touch))
         pass
-
+        # todo not Used
     async def get_cbpi_temp_unit(self):
         try:
             unit = self.cbpi.config.get("TEMP_UNIT", None)
@@ -850,7 +882,6 @@ class NEXTIONDisplay(CBPiExtension):
         global rewrite
         global targetfocus
         look_touch = 1  # in seconds
-
         touch = ser.read_until(TERMINATOR)
         if len(touch) != 0:
             istouch = touch[0:1]
@@ -858,7 +889,6 @@ class NEXTIONDisplay(CBPiExtension):
             istouch = istouch.lstrip("'b\\x")
             istouch = istouch.rstrip("\\xff\\xff\\xff\\'")
             istouch = str(istouch)
-            if DEBUG: print(istouch)
             if istouch == "e":
                 logger.info("NextionDisplay  - touch: A button has been pushed %s" % istouch)
 
@@ -903,21 +933,11 @@ class NEXTIONDisplay(CBPiExtension):
                     # writefermwave(ser, erase=False, frewrite=True) todo
                 else:
                     pass
+            pass
             time.sleep(look_touch)  # timeout the bigger the larger the chance of missing a push
         pass
 
     pass
-
-    def set_time_thread(self, ser):
-        look_time = 1  # in seconds
-        timestr = ((strftime("%Y-%m-%d %H:%M:%S", time.localtime())).ljust(20))
-        TextLableName = "t3start"
-        command = str.encode('%s.txt="%s"' % (TextLableName, timestr))
-        ser.write(command)
-        ser.write(TERMINATOR)
-        # if DEBUG: cbpi.app.logger.info("NextionDisplay  - thread set_time " + timestr)
-        time.sleep(look_time)  # showing time only every second <look_time>
-        # await asyncio.sleep(1) makes code slow
 
 
 def setup(cbpi):
