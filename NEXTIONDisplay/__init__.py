@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-# NextionDisplay Version 0.1.1.0
+# NextionDisplay Version 0.1.2.0
 # Build for Craftbeerpi 4
 # Assembled by JamFfm
 #
@@ -27,6 +27,8 @@
 # python -m serial.tools.list_ports # List all ports in command-box
 # dmesg | grep tty                  # List serial Connections
 # fermentation functions are not implemented yet
+# time as thread
+
 
 import logging
 import asyncio
@@ -36,6 +38,8 @@ import socket  # ip adr
 import fcntl  # ip adr
 import struct  # ip adr
 import threading
+import sys
+import signal
 from time import strftime  # Time display
 from cbpi.api.config import ConfigType
 from cbpi.api import *  # for logger
@@ -59,31 +63,41 @@ min_value_old = 0  # global min_value_old
 logger = logging.getLogger(__name__)
 
 
+def signal_handler(signum, frame):
+    logger.info('NextionDisplay - signal_handler strg-c detected, stop Timethread')
+    sys.exit(0)
+
+
 class Timethread (threading.Thread):
 
     def __init__(self, ser):
         threading.Thread.__init__(self)
         self.ser = ser
+        self.running = True
+        signal.signal(signal.SIGINT, signal_handler)
 
     def shutdown(self):
         pass
 
     def stop(self):
+        self.running = False
         pass
 
     def run(self):
-        try:
-            while True:
-                look_time = 1  # in seconds
+
+        while self.running is True:
+            try:
+                delay_time = 1  # in seconds
                 timestr = ((strftime("%Y-%m-%d %H:%M:%S", time.localtime())).ljust(20))
                 TextLableName = "t3start"
                 command = str.encode('%s.txt="%s"' % (TextLableName, timestr))
                 ser.write(command)
                 ser.write(TERMINATOR)
-                time.sleep(look_time)  # showing time only every second <look_time>
+                time.sleep(delay_time)  # showing time only every second <look_time>
+            except Exception as e:
+                logger.info('NextionDisplay - Timethread exception  %s' % e)
+                self.running = False
             pass
-        except Exception as e:
-            logger.info('NextionDisplay - Timethread exception  %s' % e)
         pass
 
 
@@ -125,6 +139,7 @@ class NEXTIONDisplay(CBPiExtension):
         #  for any reason the first value will be dropped so t1startfake is just fake and does nothing
         await self.NextionwriteString(ser, "t1startfake", "start")
         await self.NextionwriteString(ser, "t1start", version)
+
         self.time = Timethread(ser)
         self.time.daemon = False
         self.time.start()
