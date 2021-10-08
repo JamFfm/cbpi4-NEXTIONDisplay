@@ -22,7 +22,7 @@ Now you see the new start screen.
 
 Maybe the Serial connection has to be turned off at the RASPI Settings. Reboot. Go again to the RASPI Settings. Turn on the Serial Port. Turn off the Serial console.
 
-![Screens](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay/cbpi4-NEXTIONDisplay&nbsp;Pictures/SerialConfig.jpg "Config of Serial Connection")
+![Screens](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/tree/main/cbpi4-NEXTIONDisplay%20Pictures/SerialConfig.jpg "Config of Serial Connection")
 
 Maybe pyserial lib has to be installed if there is an error at import serial:
 
