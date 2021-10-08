@@ -97,15 +97,15 @@ This addin is designed for Craftbeerpi 4 and will display mainly the temperature
 
 Have a look:
 
-![Screens](https://github.com/JamFfm/NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay/cbpi4-NEXTIONDisplay&nbsp;Pictures/HomeScreen.jpg "Example Startscreen")
+![Screens](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay%20Pictures/HomeScreen.jpg "Example Startscreen")
 
-![Screens](https://github.com/JamFfm/NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay/cbpi4-NEXTIONDisplay&nbsp;Pictures/digitmode.jpg "Example Digitscreen")
+![Screens](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay%20Pictures/digitmode.jpg "Example Digitscreen")
 
-![Screens](https://github.com/JamFfm/NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay/cbpi4-NEXTIONDisplay&nbsp;Pictures/BrewGraph.jpg "Example Waveform")
+![Screens](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay%20Pictures/BrewGraph.jpg "Example Waveform")
 
-![Screens](https://github.com/JamFfm/NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay/cbpi4-NEXTIONDisplay&nbsp;Pictures/BrewGraphdark.jpg "Example Waveform")
+![Screens](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay%20Pictures/BrewGraphdark.jpg "Example Waveform")
 
-![Screens](https://github.com/JamFfm/NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay/cbpi4-NEXTIONDisplay&nbsp;Pictures/Multiview.jpg "Example Multiview")
+![Screens](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay%20Pictures/Multiview.jpg "Example Multiview")
 
 
 # Introduction to Nextion Displays
@@ -147,7 +147,7 @@ Features include: a 3.5" TFT 480x320 resistive touch screen display, 16M Flash, 
 
 # Wiring the display
 
-![Wireing](https://github.com/JamFfm/NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay/cbpi4-NEXTIONDisplay&nbsp;Pictures/MMDVM-Nextion-wiring-for-programming.jpg "BrewNextionDisplay 3.5 Zoll")
+![Wireing](https://github.com/JamFfm/cbpi4-NEXTIONDisplay/blob/main/cbpi4-NEXTIONDisplay%20Pictures/MMDVM-Nextion-wiring-for-programming.jpg "BrewNextionDisplay 3.5 Zoll")
 
 For USB connection please use a USB to Serial converter like this one. 
 
