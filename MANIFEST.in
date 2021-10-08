@@ -1,2 +1,2 @@
-include NEXTIONDisplay/config.yaml
-recursive-include NEXTIONDisplay/static *
+include cbpi4-NEXTIONDisplay/config.yaml
+recursive-include cbpi4-NEXTIONDisplay/static *
