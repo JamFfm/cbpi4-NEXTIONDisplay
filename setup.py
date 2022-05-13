@@ -21,7 +21,7 @@ setup(name='cbpi4-NEXTIONDisplay',
       # packages=['cbpi4-NEXTIONDisplay'],
       packages=find_packages(),
       install_requires=[
-            'cbpi>=4.0.0.33',
+      #      'cbpi>=4.0.0.33',
             'pyserial',
       ],
       long_description=long_description,
