@@ -148,7 +148,7 @@ Features include: a 3.5" TFT 480x320 resistive touch screen display, 16M Flash, 
 
 For USB connection please use a USB to Serial converter like this one. 
 
-[https://de.aliexpress.com/item/32470262188.html?spm=a2g0s.9042311.0.0.51364c4dlbTYMx](https://de.aliexpress.com/item/32428117628.html?spm=a2g0o.productlist.main.27.3d918dQ28dQ2wu&algo_pvid=6ed5be04-ac27-40f9-ae2b-644c97d43b2e&algo_exp_id=6ed5be04-ac27-40f9-ae2b-644c97d43b2e-13&pdp_ext_f=%7B%22order%22%3A%22460%22%2C%22eval%22%3A%221%22%7D&pdp_npi=4%40dis%21EUR%211.28%211.09%21%21%211.30%211.11%21%40%2112000037978369077%21sea%21DE%21844136272%21X&curPageLogUid=PPgIDnEvvH92&utparam-url=scene%3Asearch%7Cquery_from%3A)
+[(https://de.aliexpress.com/item/32428117628.html?spm=a2g0o.productlist.main.27.3d918dQ28dQ2wu&algo_pvid=6ed5be04-ac27-40f9-ae2b-644c97d43b2e&algo_exp_id=6ed5be04-ac27-40f9-ae2b-644c97d43b2e-13&pdp_ext_f=%7B%22order%22%3A%22460%22%2C%22eval%22%3A%221%22%7D&pdp_npi=4%40dis%21EUR%211.28%211.09%21%21%211.30%211.11%21%40%2112000037978369077%21sea%21DE%21844136272%21X&curPageLogUid=PPgIDnEvvH92&utparam-url=scene%3Asearch%7Cquery_from%3A)]
 
 Use 5V for the jumper position on the USB to Serial converter.
 
