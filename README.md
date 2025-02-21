@@ -27,12 +27,14 @@ Now you see the new start screen.
 
 #### Software installation ####
 
+First of all the Documentation of CarftbeerPi is the leading document.
+
 Navigate in the Linux console and excecute:
 ```python
 pipx runpip cbpi4 install send2trash==1.8.3
 pipx runpip cbpi4 install https://github.com/JamFfm/cbpi4-NEXTIONDisplay/archive/main.zip
 ```
-The first line is just to ensure there is noc send2trash error thrown. You con leave it away.
+The first line is just to ensure there is no send2trash errors thrown. You can leave it away.
 
 <br />
 
@@ -161,22 +163,15 @@ This will show the graph and target line in bold. The parameter is used for brew
 # Known problems
 
 
-1. Due to the fact that wave is only working with integer the wave values have to be rounded. So sometimes the graph is not precise. Error should be around 0.1°C/F.
+1. Due to the fact that wave-graph is only working with integer the wave values have to be rounded. So sometimes the graph is not precise. Error should be around 0.1°C/F.
 
 2. With Raspi 3b I got some Problems to connect to a serial port. Raspi could only read the Nextion but not write to it. 
 I assume the serial of bluetooth needs to be captured. I did not want to kill bluetooth though I do not use it in my installation. I used the serial via USB Port.
 
-4. Fermentation ist not supported because it is not realised in the main software.
+4. Fermentation ist not supported because I do not use fermentation with CBPI4 and because of a lack of time. Maxbe I will implement it in the future.
 
-
+ 
 
 **Help is welcome**
 
-
-# Fixed Problems
-1. Due to the fact time is a thread this one is not stopped by ''strg c'' in command window of raspi.
-
-# Support
-
-Report issues either in this Git section or at Facebook at the [Craftbeerpi group](https://www.facebook.com/groups/craftbeerpi/)
 
