@@ -1,0 +1,207 @@
+TERMINATOR = b'\xff\xff\xff'
+
+# Konstanten statt Magic Numbers
+WAVE_WIDTH = 406
+WAVE_HEIGHT = 202
+SERIAL_BAUDRATE = 38400
+TEMP_SKIP_THRESHOLD = 110.00
+SCALE_MARGIN = 0.3
+
+
+class NEXTIONDisplay(CBPiExtension):
+
+    def __init__(self, cbpi):
+        self.cbpi = cbpi
+
+        # --- Ehemals globale Variablen, jetzt Instanzvariablen ---
+        self.ser = None
+        self.temp_list = []          # war: liste
+        self.target_list = []        # war: listetarget
+        self.erase = False
+        self.rewrite = False
+        self.targetfocus = "off"
+        self.max_value_old = 0.0
+        self.min_value_old = 0.0
+
+        # Task-Referenzen für sauberes Shutdown
+        self._main_task = asyncio.create_task(self.run())
+        self._time_task = None
+
+    # ------------------------------------------------------------------
+    # Timethread ersetzt durch async Task
+    # ------------------------------------------------------------------
+    async def _time_loop(self):
+        """Zeigt die aktuelle Uhrzeit auf dem Display — ersetzt Timethread."""
+        while True:
+            try:
+                timestr = strftime("%Y-%m-%d %H:%M:%S", time.localtime()).ljust(20)
+                await self.send_command('t3start.txt="%s"' % timestr)
+                await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                logger.info("NextionDisplay - Time task cancelled")
+                break
+            except Exception as e:
+                logger.warning("NextionDisplay - Time loop exception: %s" % e)
+                await asyncio.sleep(5)  # Retry nach kurzer Pause
+
+    # ------------------------------------------------------------------
+    # Generische Send-Methode (Serial + Terminator)
+    # ------------------------------------------------------------------
+    async def send_command(self, command_str):
+        """Sendet einen Befehl an das Nextion Display."""
+        command = command_str.encode()
+        # Serial I/O in Thread auslagern, damit der Event-Loop nicht blockiert
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._write_serial, command)
+
+    def _write_serial(self, command_bytes):
+        """Blockierender Serial-Write — wird im Executor ausgeführt."""
+        self.ser.write(command_bytes)
+        self.ser.write(TERMINATOR)
+
+    # ------------------------------------------------------------------
+    # Hauptloop — keine globalen Variablen mehr
+    # ------------------------------------------------------------------
+    async def run(self):
+        port = await self.set_serial_port_of_raspi()
+        logger.info("NextionDisplay - Serial Port: %s" % port)
+        await asyncio.sleep(3)
+
+        self.ser = serial.Serial(
+            port=port,
+            baudrate=SERIAL_BAUDRATE,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            bytesize=serial.EIGHTBITS,
+            timeout=0.1
+        )
+        self.ser.reset_output_buffer()
+
+        # Setup
+        kettle_id = await self.set_parameter_kettleID()
+        dubbleline = await self.set_parameter_dubbleline()
+        ip = await self.set_ip()
+        version = await self.get_cbpi_version()
+
+        await self.nextion_write_string("t1start", version)
+
+        # Zeit-Task starten (ersetzt Timethread)
+        self._time_task = asyncio.create_task(self._time_loop())
+        logger.info("NextionDisplay - Time task started")
+
+        # Hauptloop
+        while True:
+            try:
+                kettle_id = await self.set_parameter_kettleID()
+                dubbleline = await self.set_parameter_dubbleline()
+                ip = await self.set_ip()
+
+                await self.nextion_write_string("t2start", "IP: %s" % ip)
+
+                all_values = await self.collect_all_values(kettle_id)
+
+                # ... restliche Logik, aber mit self.erase, self.rewrite etc.
+
+                await self.detect_touch()
+
+                if all_values["current_temp_of_kettle_sensor_as_float"] < TEMP_SKIP_THRESHOLD:
+                    await self.writewave(
+                        all_values["current_temp_of_kettle_sensor_as_float"],
+                        all_values["current_temp_of_kettle_sensor_formatted_as_string"],
+                        all_values["kettle_target_temp_as_float"],
+                        all_values["kettle_target_temp_formatted_as_string"],
+                        all_values["name_of_current_kettle"],
+                        all_values["active_step_name"],
+                        all_values["remaining_time"],
+                        dubbleline
+                    )
+
+                # Flags zurücksetzen
+                self.rewrite = False
+                self.erase = False
+
+                await asyncio.sleep(1)
+
+            except Exception as e:
+                logger.error("NextionDisplay - Main loop error: %s" % e)
+                await asyncio.sleep(5)
+
+    # ------------------------------------------------------------------
+    # Beispiel: writewave nutzt jetzt self.xxx statt globale Variablen
+    # ------------------------------------------------------------------
+    async def writewave(self, current_temp, current_temp_str, target_temp,
+                        target_temp_str, kettle_name, rest_name,
+                        remaining_time, dubbleline):
+
+        # Zugriff über self statt global
+        if self.erase:
+            self.temp_list.clear()
+            self.target_list.clear()
+
+        # Liste verwalten
+        if len(self.temp_list) < WAVE_WIDTH:
+            self.temp_list.append(current_temp)
+        else:
+            self.temp_list.pop(0)
+            self.temp_list.append(current_temp)
+
+        if len(self.target_list) < WAVE_WIDTH:
+            self.target_list.append(target_temp)
+        else:
+            self.target_list.pop(0)
+            self.target_list.append(target_temp)
+
+        # Skalierung berechnen
+        if self.targetfocus == "on":
+            max_value = max(
+                round(max(self.temp_list) + SCALE_MARGIN, 1),
+                round(max(self.target_list) + SCALE_MARGIN, 1)
+            )
+            min_value = min(
+                round(min(self.temp_list) - SCALE_MARGIN, 1),
+                round(min(self.target_list) - SCALE_MARGIN, 1)
+            )
+        else:
+            max_value = round(max(self.temp_list) + SCALE_MARGIN, 1)
+            min_value = round(min(self.temp_list) - SCALE_MARGIN, 1)
+
+        # Neuzeichnen wenn Skala sich geändert hat
+        needs_redraw = (
+            max_value != self.max_value_old
+            or min_value != self.min_value_old
+            or self.rewrite
+        )
+
+        if needs_redraw:
+            await self._redraw_full_wave(min_value, max_value, dubbleline)
+        else:
+            await self._append_wave_point(current_temp, target_temp,
+                                          min_value, max_value, dubbleline)
+
+        self.max_value_old = max_value
+        self.min_value_old = min_value
+
+    # ------------------------------------------------------------------
+    # Hilfsmethoden (Nextion-Kommunikation) — ser kommt jetzt von self
+    # ------------------------------------------------------------------
+    async def nextion_write_string(self, label_name, string):
+        await self.send_command('%s.txt="%s"' % (label_name, string))
+
+    async def nextion_write_wave(self, wave_id, channel, value):
+        await self.send_command('add %s,%s,%s' % (wave_id, channel, value))
+
+    async def nextion_clear_wave(self, wave_id, channel):
+        await self.send_command('cle %s,%s' % (wave_id, channel))
+
+    # ------------------------------------------------------------------
+    # Sauberes Shutdown
+    # ------------------------------------------------------------------
+    async def shutdown(self):
+        """Aufräumen beim Beenden."""
+        if self._time_task:
+            self._time_task.cancel()
+            await asyncio.gather(self._time_task, return_exceptions=True)
+
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+            logger.info("NextionDisplay - Serial port closed")
