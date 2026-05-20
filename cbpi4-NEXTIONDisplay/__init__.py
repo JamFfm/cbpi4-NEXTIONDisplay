@@ -134,6 +134,7 @@ class NEXTIONDisplay(CBPiExtension):
         logger.info("NextionDisplay - dubbleline: %s" % dubbleline)
         ip = await self.set_ip()
         iptext = "IP of Raspi: %s" % ip
+        await self.NextionwriteString(ser, "t2start", iptext)
         logger.info("NextionDisplay - %s" % iptext)
         version = await self.get_cbpi_version()
         logger.info("nextionDisplay - CBPI version: %s" % version)
@@ -154,10 +155,11 @@ class NEXTIONDisplay(CBPiExtension):
             # fermid = int(set_parameter_fermID())
             dubbleline = await self.set_parameter_dubbleline(ser)
 
-            ip = await self.set_ip()
-            iptext = "IP: %s" % ip
-
-            await self.NextionwriteString(ser, "t2start", iptext)
+            # the ip does not change during brewing (and if there is more troubble than showing the ip
+            # skip this for Performance
+            # ip = await self.set_ip()
+            # iptext = "IP: %s" % ip
+            # await self.NextionwriteString(ser, "t2start", iptext)
 
             # collect all values
             all_values = await self.collect_all_values(kettleID)
